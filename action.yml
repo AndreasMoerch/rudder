@@ -1,0 +1,5 @@
+name: 'Rudder Action'
+description: 'A TypeScript-based GitHub Action'
+runs:
+  using: 'node20'
+  main: 'dist/index.js'
