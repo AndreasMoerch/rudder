@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "scripts": {
     "render": "node dist/index.js",
-    "build": "ncc build src/index.ts -o dist && cp src/github/templates/comment-template.md dist/github/templates/comment-template.md",
+    "build": "ncc build src/index.ts -o dist",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

@@ -1,7 +1,6 @@
 import * as core from '@actions/core';
 import * as github from '@actions/github';
-import { readFileSync } from 'fs';
-import { join } from 'path';
+import { COMMENT_TEMPLATE } from './comment-template';
 
 export interface GitHubContext {
     isPullRequest: boolean;
@@ -96,9 +95,7 @@ export async function commentOnPR(
  * @returns Formatted Markdown comment
  */
 export function formatHelmComment(helmOutput: string, valuesUsed: string): string {
-    const templatePath = join(__dirname, 'templates', 'comment-template.md');
-    const template = readFileSync(templatePath, 'utf-8');
-    return template
+    return COMMENT_TEMPLATE
         .replace('{{lineCount}}', String(helmOutput.split('\n').length))
         .replace('{{helmOutput}}', helmOutput)
         .replace('{{valuesUsed}}', valuesUsed);
