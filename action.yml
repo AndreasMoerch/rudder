@@ -5,10 +5,10 @@ branding:
   icon: 'anchor'
   color: 'blue'
 inputs:
-  yaml-file:
+  values-file:
     description: 'Path to the YAML file containing values'
     required: false
-  values-path:
+  values-selector:
     description: 'Dot-notation path to extract from YAML (e.g., spec.source.helm.valuesObject)'
     required: false
   chart-path:

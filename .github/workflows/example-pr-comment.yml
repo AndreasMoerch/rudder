@@ -6,8 +6,6 @@ on:
     paths:
       - '**/*.yaml'
       - '**/*.yml'
-  issue_comment:
-    types: [created]
 
 permissions:
   contents: read
@@ -16,8 +14,6 @@ permissions:
 jobs:
   render-helm:
     runs-on: ubuntu-latest
-    if: |
-      github.event_name == 'pull_request'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -30,7 +26,7 @@ jobs:
       - name: Run Rudder Action
         uses: ./  # Use local action in the repo
         with:
-          yaml-file: 'example/values.yaml'
+          values-file: 'example/values.yaml'
           chart-path: 'example/chart'
           release-name: 'my-release'
           namespace: 'default'

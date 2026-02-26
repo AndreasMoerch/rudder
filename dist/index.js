@@ -47226,16 +47226,16 @@ const yaml_1 = __nccwpck_require__(1206);
  * Reads the values file and returns its YAML content as a string array for helm -f flags.
  * If no file is provided, returns an empty array and the chart renders with its own defaults.
  * implNote: If no values file is passed, Helm will use the bundled Values file.
- * @param yamlFilePath - Optional path to a YAML values file.
- * @param valuesPath - Optional dot-notation path to extract a nested object (e.g. spec.helm.values).
+ * @param valuesFilePath - Optional path to a YAML values file.
+ * @param valuesSelector - Optional dot-notation path to extract a nested object (e.g. spec.helm.values).
  */
-async function resolveValues(yamlFilePath, valuesPath) {
-    if (!yamlFilePath) {
+async function resolveValues(valuesFilePath, valuesSelector) {
+    if (!valuesFilePath) {
         core.info('No values file provided, rendering chart with defaults');
         return [];
     }
-    core.info(`Reading YAML file: ${yamlFilePath}`);
-    const yamlValue = await (0, yaml_1.readYamlFile)(yamlFilePath, { valuesPath: valuesPath || undefined });
+    core.info(`Reading YAML file: ${valuesFilePath}`);
+    const yamlValue = await (0, yaml_1.readYamlFile)(valuesFilePath, { valuesPath: valuesSelector || undefined });
     core.setOutput('extracted-values', yamlValue.output);
     core.info('Extracted values from YAML file');
     return [yamlValue.output];
@@ -47298,12 +47298,12 @@ async function postErrorComment(error) {
  */
 async function runAction() {
     try {
-        const yamlFilePath = core.getInput('yaml-file');
-        const valuesPath = core.getInput('values-path');
+        const valuesFilePath = core.getInput('values-file');
+        const valuesSelector = core.getInput('values-selector');
         const chartPath = core.getInput('chart-path', { required: true });
         const releaseName = core.getInput('release-name') || 'release';
         const namespace = core.getInput('namespace');
-        const values = await resolveValues(yamlFilePath, valuesPath);
+        const values = await resolveValues(valuesFilePath, valuesSelector);
         const result = await renderChart(chartPath, values, releaseName, namespace);
         await postComment(result.output, values);
     }
@@ -58278,8 +58278,8 @@ function parseArgs() {
     };
     const root = (0, path_1.join)(__dirname, '..', 'example');
     return {
-        yamlFile: get('--yaml-file'),
-        valuesPath: get('--values-path'),
+        valuesFile: get('--values-file'),
+        valuesSelector: get('--values-selector'),
         chartPath: get('--chart-path') ?? (0, path_1.join)(root, 'chart'),
         releaseName: get('--release-name') ?? 'release',
         namespace: get('--namespace'),
@@ -58294,14 +58294,14 @@ if (require.main === require.cache[eval('__filename')]) {
         });
     }
     else {
-        const { yamlFile, valuesPath, chartPath, releaseName, namespace } = parseArgs();
+        const { valuesFile, valuesSelector, chartPath, releaseName, namespace } = parseArgs();
         const renderChart = (values) => (0, helm_1.helmTemplate)(chartPath, { values, releaseName, namespace: namespace || undefined })
             .then(result => {
             console.log('\n=== Rendered Chart ===');
             console.log(result.output);
         });
-        const run = yamlFile
-            ? (0, yaml_1.readYamlFile)(yamlFile, { valuesPath }).then(v => renderChart([v.output]))
+        const run = valuesFile
+            ? (0, yaml_1.readYamlFile)(valuesFile, { valuesPath: valuesSelector }).then(v => renderChart([v.output]))
             : renderChart([]);
         run.catch(error => {
             console.error('Error:', error);
