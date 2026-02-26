@@ -1,0 +1,31 @@
+name: 'Rudder Action'
+description: 'Render Helm charts with values extracted from YAML files'
+author: 'Andreas Mørch'
+branding:
+  icon: 'anchor'
+  color: 'blue'
+inputs:
+  yaml-file:
+    description: 'Path to the YAML file containing values'
+    required: true
+  values-path:
+    description: 'Dot-notation path to extract from YAML (e.g., spec.source.helm.valuesObject)'
+    required: false
+  chart-path:
+    description: 'Path to the Helm chart directory or chart reference'
+    required: true
+  release-name:
+    description: 'Release name for Helm template rendering'
+    required: false
+    default: 'release'
+  namespace:
+    description: 'Kubernetes namespace for template rendering'
+    required: false
+outputs:
+  rendered-yaml:
+    description: 'The rendered Helm chart YAML output'
+  extracted-values:
+    description: 'The values extracted from the YAML file'
+runs:
+  using: 'node20'
+  main: 'dist/index.js'

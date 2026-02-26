@@ -1,0 +1,26 @@
+{
+  "name": "rudder",
+  "version": "1.0.0",
+  "description": "Experimentation with Helm and GitHub Action",
+  "main": "dist/index.js",
+  "scripts": {
+    "render": "node dist/index.js",
+    "build": "ncc build src/index.ts -o dist",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "Andreas Mørch",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/lodash": "^4.17.23",
+    "@types/node": "^25.1.0",
+    "@vercel/ncc": "^0.38.4",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@actions/core": "^1.11.1",
+    "@actions/github": "^6.0.0",
+    "lodash": "^4.17.23",
+    "yaml": "^2.8.2"
+  }
+}
