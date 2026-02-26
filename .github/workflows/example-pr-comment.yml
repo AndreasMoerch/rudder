@@ -1,0 +1,41 @@
+name: Render Helm Chart on PR
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - '**/*.yaml'
+      - '**/*.yml'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: write  # Required to post comments
+
+jobs:
+  render-helm:
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'issue_comment' && github.event.issue.pull_request != null && contains(github.event.comment.body, 'rudder render'))
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'issue_comment' && github.event.issue.pull_request.head.sha || github.sha }}
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: 'latest'
+
+      - name: Run Rudder Action
+        uses: ./  # Use local action in the repo
+        with:
+          yaml-file: 'example/values.yaml'
+          chart-path: 'example/chart'
+          release-name: 'my-release'
+          namespace: 'default'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
