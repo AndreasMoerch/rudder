@@ -87,8 +87,6 @@ When running in a pull request context, Rudder automatically posts a comment wit
 - The extracted values (collapsible)
 - The full rendered chart output (collapsible)
 
-See [PR_COMMENTS.md](docs/PR_COMMENTS.md) for more details.
-
 ## Development
 
 This is a TypeScript-based GitHub Action.
