@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "scripts": {
     "render": "node dist/index.js",
-    "build": "tsc && mkdir -p dist/github/templates && cp src/github/templates/comment-template.md dist/github/templates/comment-template.md",
+    "build": "ncc build src/index.ts -o dist && cp src/github/templates/comment-template.md dist/github/templates/comment-template.md",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -14,6 +14,7 @@
   "devDependencies": {
     "@types/lodash": "^4.17.23",
     "@types/node": "^25.1.0",
+    "@vercel/ncc": "^0.38.4",
     "typescript": "^5.9.3"
   },
   "dependencies": {
