@@ -22,20 +22,20 @@ export interface YamlResult {
 export async function readYamlFile(filePath: string, options: YamlOptions = {}): Promise<YamlResult> {
     try {
         const content = await readFile(filePath, { encoding: 'utf-8' });
-        
+
         let loadedYaml = YAML.parse(content);
         if (options.valuesPath) {
             // Remove leading dot if present for lodash compatibility
-            const normalizedPath = options.valuesPath.startsWith('.') 
-                ? options.valuesPath.slice(1) 
+            const normalizedPath = options.valuesPath.startsWith('.')
+                ? options.valuesPath.slice(1)
                 : options.valuesPath;
-            
+
             const extracted = get(loadedYaml, normalizedPath);
-            
+
             if (extracted === undefined) {
                 throw new Error(`Path '${options.valuesPath}' not found in YAML file`);
             }
-            
+
             loadedYaml = extracted;
         }
 

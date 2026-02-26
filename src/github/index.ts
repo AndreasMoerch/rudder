@@ -1,6 +1,9 @@
 import * as core from '@actions/core';
 import * as github from '@actions/github';
-import { COMMENT_TEMPLATE } from './comment-template';
+import { RENDER_COMMENT_TEMPLATE } from './templates/render-comment-template';
+import { ERROR_COMMENT_TEMPLATE } from './templates/error-comment-template';
+
+const MAX_COMMENT_SIZE = 65000;
 
 export interface GitHubContext {
     isPullRequest: boolean;
@@ -20,8 +23,7 @@ export function getGitHubContext(): GitHubContext {
 
     // Check if this is a pull request event
     const isPullRequest = context.eventName === 'pull_request' ||
-                          context.eventName === 'pull_request_target' ||
-                          (context.eventName === 'issue_comment' && !!context.payload.issue?.pull_request);
+                          context.eventName === 'pull_request_target';
 
     let prNumber: number | undefined;
 
@@ -54,17 +56,10 @@ export async function commentOnPR(
     comment: string,
     token: string = process.env.GITHUB_TOKEN || ''
 ): Promise<void> {
-    // Skip if not in GitHub Actions environment
-    if (process.env.GITHUB_ACTIONS !== 'true') {
-        console.warn('Not in GitHub Actions environment, skipping PR comment');
-        return;
-    }
-
     if (!token) {
         throw new Error('GITHUB_TOKEN is required to post PR comments');
     }
 
-    const MAX_COMMENT_SIZE = 65000;
     if (comment.length > MAX_COMMENT_SIZE) {
         core.warning(`Rendered output too large for a PR comment (${comment.length} chars). Skipping comment.`);
         return;
@@ -95,8 +90,13 @@ export async function commentOnPR(
  * @returns Formatted Markdown comment
  */
 export function formatHelmComment(helmOutput: string, valuesUsed: string): string {
-    return COMMENT_TEMPLATE
+    return RENDER_COMMENT_TEMPLATE
         .replace('{{lineCount}}', String(helmOutput.split('\n').length))
         .replace('{{helmOutput}}', helmOutput)
         .replace('{{valuesUsed}}', valuesUsed);
+}
+
+export function formatErrorComment(errorMessage: string): string {
+    return ERROR_COMMENT_TEMPLATE
+        .replace('{{errorMessage}}', errorMessage);
 }

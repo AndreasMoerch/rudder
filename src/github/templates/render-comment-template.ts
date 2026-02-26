@@ -1,4 +1,4 @@
-export const COMMENT_TEMPLATE = `## 🎯 Helm Chart Rendered
+export const RENDER_COMMENT_TEMPLATE = `## 🎯 Helm Chart Rendered
 
 ### Values Used
 <details>

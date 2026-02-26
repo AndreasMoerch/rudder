@@ -7,7 +7,7 @@ branding:
 inputs:
   yaml-file:
     description: 'Path to the YAML file containing values'
-    required: true
+    required: false
   values-path:
     description: 'Dot-notation path to extract from YAML (e.g., spec.source.helm.valuesObject)'
     required: false

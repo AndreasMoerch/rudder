@@ -28,7 +28,7 @@ export async function helmTemplate(chart: string, options: HelmTemplateOptions =
 
     const releaseName = options.releaseName || 'release';
     const args = ['template', releaseName, chart];
-    
+
     if (options.namespace) {
         args.push('--namespace', options.namespace);
     }

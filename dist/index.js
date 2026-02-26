@@ -47223,86 +47223,97 @@ const github_1 = __nccwpck_require__(1631);
 const helm_1 = __nccwpck_require__(1781);
 const yaml_1 = __nccwpck_require__(1206);
 /**
- * Main entry point for GitHub Action execution
- * Handles input/output, PR detection, and commenting
+ * Reads the values file and returns its YAML content as a string array for helm -f flags.
+ * If no file is provided, returns an empty array and the chart renders with its own defaults.
+ * implNote: If no values file is passed, Helm will use the bundled Values file.
+ * @param yamlFilePath - Optional path to a YAML values file.
+ * @param valuesPath - Optional dot-notation path to extract a nested object (e.g. spec.helm.values).
+ */
+async function resolveValues(yamlFilePath, valuesPath) {
+    if (!yamlFilePath) {
+        core.info('No values file provided, rendering chart with defaults');
+        return [];
+    }
+    core.info(`Reading YAML file: ${yamlFilePath}`);
+    const yamlValue = await (0, yaml_1.readYamlFile)(yamlFilePath, { valuesPath: valuesPath || undefined });
+    core.setOutput('extracted-values', yamlValue.output);
+    core.info('Extracted values from YAML file');
+    return [yamlValue.output];
+}
+/**
+ * Runs helm template with the resolved values and returns the rendered output.
+ * Also sets the rendered-yaml action output for downstream steps.
+ * @param chartPath - Path or reference to the Helm chart.
+ * @param values - Array of YAML value strings to pass as -f flags.
+ * @param releaseName - Helm release name.
+ * @param namespace - Kubernetes namespace.
+ */
+async function renderChart(chartPath, values, releaseName, namespace) {
+    core.info(`Rendering Helm chart: ${chartPath}`);
+    const result = await (0, helm_1.helmTemplate)(chartPath, {
+        values: values,
+        releaseName: releaseName,
+        namespace: namespace,
+    });
+    core.setOutput('rendered-yaml', result.output);
+    core.info('Successfully rendered Helm chart');
+    return result;
+}
+/**
+ * Posts the rendered Helm chart as a formatted comment on the PR.
+ * No-ops if not running in a pull request context.
+ * @param renderedYaml - The rendered Helm chart output.
+ * @param values - The values used for rendering, shown in the comment.
+ */
+async function postComment(renderedYaml, values) {
+    const githubContext = (0, github_1.getGitHubContext)();
+    if (!githubContext.isPullRequest || !githubContext.prNumber) {
+        core.info('Not running in PR context, skipping comment');
+        return;
+    }
+    core.info(`Detected PR #${githubContext.prNumber}, posting comment...`);
+    const comment = (0, github_1.formatHelmComment)(renderedYaml, values[0] ?? '(chart defaults)');
+    await (0, github_1.commentOnPR)(githubContext.prNumber, comment);
+}
+/**
+ * Posts the error as a comment on the PR so it is visible without digging into GHA logs.
+ * Failures are swallowed to avoid masking the original error.
+ * @param error - The error that caused the action to fail.
+ */
+async function postErrorComment(error) {
+    try {
+        const githubContext = (0, github_1.getGitHubContext)();
+        if (githubContext.isPullRequest && githubContext.prNumber) {
+            await (0, github_1.commentOnPR)(githubContext.prNumber, (0, github_1.formatErrorComment)(error.message));
+        }
+    }
+    catch {
+        // Swallow — don't obscure the original error
+    }
+}
+/**
+ * Main entry point for GitHub Action execution.
+ * Reads action inputs, renders the Helm chart, and posts the result as a PR comment.
+ * On failure, posts the error as a PR comment before re-throwing.
  */
 async function runAction() {
     try {
-        // Get inputs from GitHub Action
-        const yamlFilePath = core.getInput('yaml-file', { required: true });
+        const yamlFilePath = core.getInput('yaml-file');
         const valuesPath = core.getInput('values-path');
         const chartPath = core.getInput('chart-path', { required: true });
         const releaseName = core.getInput('release-name') || 'release';
         const namespace = core.getInput('namespace');
-        core.info(`Reading YAML file: ${yamlFilePath}`);
-        const yamlValue = await (0, yaml_1.readYamlFile)(yamlFilePath, {
-            valuesPath: valuesPath || undefined
-        });
-        core.setOutput('extracted-values', yamlValue.output);
-        core.info('Extracted values from YAML file');
-        core.info(`Rendering Helm chart: ${chartPath}`);
-        const result = await (0, helm_1.helmTemplate)(chartPath, {
-            values: [yamlValue.output],
-            releaseName,
-            namespace: namespace || undefined
-        });
-        core.setOutput('rendered-yaml', result.output);
-        core.info('Successfully rendered Helm chart');
-        // Check if running in PR context and post comment
-        const githubContext = (0, github_1.getGitHubContext)();
-        if (githubContext.isPullRequest && githubContext.prNumber) {
-            core.info(`Detected PR #${githubContext.prNumber}, posting comment...`);
-            const comment = (0, github_1.formatHelmComment)(result.output, yamlValue.output);
-            await (0, github_1.commentOnPR)(githubContext.prNumber, comment);
-        }
-        else {
-            core.info('Not running in PR context, skipping comment');
-        }
+        const values = await resolveValues(yamlFilePath, valuesPath);
+        const result = await renderChart(chartPath, values, releaseName, namespace);
+        await postComment(result.output, values);
     }
     catch (error) {
-        if (error instanceof Error) {
-            core.setFailed(error.message);
-        }
-        else {
-            core.setFailed('Unknown error occurred');
-        }
+        const err = error instanceof Error ? error : new Error('Unknown error occurred');
+        core.setFailed(err.message);
+        await postErrorComment(err);
         throw error;
     }
 }
-
-
-/***/ }),
-
-/***/ 8329:
-/***/ ((__unused_webpack_module, exports) => {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.COMMENT_TEMPLATE = void 0;
-exports.COMMENT_TEMPLATE = `## 🎯 Helm Chart Rendered
-
-### Values Used
-<details>
-<summary>Click to expand values</summary>
-
-\`\`\`yaml
-{{valuesUsed}}
-\`\`\`
-</details>
-
-### Rendered Output
-<details>
-<summary>Click to expand rendered chart ({{lineCount}} lines)</summary>
-
-\`\`\`yaml
-{{helmOutput}}
-\`\`\`
-</details>
-
----
-*Generated by Rudder GitHub Action*
-`;
 
 
 /***/ }),
@@ -47349,9 +47360,12 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.getGitHubContext = getGitHubContext;
 exports.commentOnPR = commentOnPR;
 exports.formatHelmComment = formatHelmComment;
+exports.formatErrorComment = formatErrorComment;
 const core = __importStar(__nccwpck_require__(7484));
 const github = __importStar(__nccwpck_require__(3228));
-const comment_template_1 = __nccwpck_require__(8329);
+const render_comment_template_1 = __nccwpck_require__(7230);
+const error_comment_template_1 = __nccwpck_require__(5844);
+const MAX_COMMENT_SIZE = 65000;
 /**
  * Get GitHub context information including PR details
  * @returns GitHub context with PR information if available
@@ -47360,8 +47374,7 @@ function getGitHubContext() {
     const context = github.context;
     // Check if this is a pull request event
     const isPullRequest = context.eventName === 'pull_request' ||
-        context.eventName === 'pull_request_target' ||
-        (context.eventName === 'issue_comment' && !!context.payload.issue?.pull_request);
+        context.eventName === 'pull_request_target';
     let prNumber;
     if (isPullRequest) {
         if (context.payload.pull_request) {
@@ -47387,15 +47400,9 @@ function getGitHubContext() {
  * @param token GitHub token (defaults to GITHUB_TOKEN from environment)
  */
 async function commentOnPR(prNumber, comment, token = process.env.GITHUB_TOKEN || '') {
-    // Skip if not in GitHub Actions environment
-    if (process.env.GITHUB_ACTIONS !== 'true') {
-        console.warn('Not in GitHub Actions environment, skipping PR comment');
-        return;
-    }
     if (!token) {
         throw new Error('GITHUB_TOKEN is required to post PR comments');
     }
-    const MAX_COMMENT_SIZE = 65000;
     if (comment.length > MAX_COMMENT_SIZE) {
         core.warning(`Rendered output too large for a PR comment (${comment.length} chars). Skipping comment.`);
         return;
@@ -47423,11 +47430,69 @@ async function commentOnPR(prNumber, comment, token = process.env.GITHUB_TOKEN |
  * @returns Formatted Markdown comment
  */
 function formatHelmComment(helmOutput, valuesUsed) {
-    return comment_template_1.COMMENT_TEMPLATE
+    return render_comment_template_1.RENDER_COMMENT_TEMPLATE
         .replace('{{lineCount}}', String(helmOutput.split('\n').length))
         .replace('{{helmOutput}}', helmOutput)
         .replace('{{valuesUsed}}', valuesUsed);
 }
+function formatErrorComment(errorMessage) {
+    return error_comment_template_1.ERROR_COMMENT_TEMPLATE
+        .replace('{{errorMessage}}', errorMessage);
+}
+
+
+/***/ }),
+
+/***/ 5844:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.ERROR_COMMENT_TEMPLATE = void 0;
+exports.ERROR_COMMENT_TEMPLATE = `## ❌ Rudder failed to render Helm chart
+
+\`\`\`
+{{errorMessage}}
+\`\`\`
+
+---
+*Generated by Rudder GitHub Action*
+`;
+
+
+/***/ }),
+
+/***/ 7230:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.RENDER_COMMENT_TEMPLATE = void 0;
+exports.RENDER_COMMENT_TEMPLATE = `## 🎯 Helm Chart Rendered
+
+### Values Used
+<details>
+<summary>Click to expand values</summary>
+
+\`\`\`yaml
+{{valuesUsed}}
+\`\`\`
+</details>
+
+### Rendered Output
+<details>
+<summary>Click to expand rendered chart ({{lineCount}} lines)</summary>
+
+\`\`\`yaml
+{{helmOutput}}
+\`\`\`
+</details>
+
+---
+*Generated by Rudder GitHub Action*
+`;
 
 
 /***/ }),
@@ -58202,6 +58267,25 @@ const action_1 = __nccwpck_require__(2929);
 const helm_1 = __nccwpck_require__(1781);
 const yaml_1 = __nccwpck_require__(1206);
 const path_1 = __nccwpck_require__(6928);
+/**
+ * Handles input args when running local development. Using sensible defaults if not specified otherwise (will use local chart + values),
+ */
+function parseArgs() {
+    const args = process.argv.slice(2);
+    const get = (flag) => {
+        const i = args.indexOf(flag);
+        return i !== -1 ? args[i + 1] : undefined;
+    };
+    const root = (0, path_1.join)(__dirname, '..', 'example');
+    return {
+        yamlFile: get('--yaml-file'),
+        valuesPath: get('--values-path'),
+        chartPath: get('--chart-path') ?? (0, path_1.join)(root, 'chart'),
+        releaseName: get('--release-name') ?? 'release',
+        namespace: get('--namespace'),
+    };
+}
+// Entry point
 if (require.main === require.cache[eval('__filename')]) {
     if (process.env.GITHUB_ACTIONS === 'true') {
         (0, action_1.runAction)().catch(error => {
@@ -58210,17 +58294,16 @@ if (require.main === require.cache[eval('__filename')]) {
         });
     }
     else {
-        // Local dev: render example chart
-        const root = (0, path_1.join)(__dirname, '..', 'example');
-        const yamlFilePath = (0, path_1.join)(root, 'values.yaml');
-        const chartPath = (0, path_1.join)(root, 'chart');
-        (0, yaml_1.readYamlFile)(yamlFilePath)
-            .then(yamlValue => (0, helm_1.helmTemplate)(chartPath, { values: [yamlValue.output], releaseName: 'release' }))
+        const { yamlFile, valuesPath, chartPath, releaseName, namespace } = parseArgs();
+        const renderChart = (values) => (0, helm_1.helmTemplate)(chartPath, { values, releaseName, namespace: namespace || undefined })
             .then(result => {
             console.log('\n=== Rendered Chart ===');
             console.log(result.output);
-        })
-            .catch(error => {
+        });
+        const run = yamlFile
+            ? (0, yaml_1.readYamlFile)(yamlFile, { valuesPath }).then(v => renderChart([v.output]))
+            : renderChart([]);
+        run.catch(error => {
             console.error('Error:', error);
             process.exit(1);
         });
